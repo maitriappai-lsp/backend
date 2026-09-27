@@ -1,4 +1,4 @@
-DATABASE_URL=postgresql://neondb_owner:npg_wLT2Fklr6oys@ep-withered-firefly-azo824vb-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_URL=postgres://maitri:maitri@localhost:5432/maitri_lsp
 JWT_SECRET=change-this-to-something-long-and-random
 PORT=4000
 # Set to true when DATABASE_URL points at a hosted Postgres (Neon, Render,

@@ -206,3 +206,12 @@ CREATE TABLE IF NOT EXISTS system_parameters (
   gps_on_beneficiary     BOOLEAN DEFAULT TRUE,
   allowed_upload_types   JSONB DEFAULT '["photo","pdf","ppt"]'
 );
+
+-- Admin time-in/time-out corrections (Override screen). Kept on the
+-- attendance row itself -- not just the separate `overrides` bypass log --
+-- so every attendance record's audit trail (who corrected it, when, and
+-- why) travels with the record itself, including in the Excel export.
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden BOOLEAN DEFAULT FALSE;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS override_reason TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden_by TEXT REFERENCES resources(id) ON DELETE SET NULL;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden_at TIMESTAMPTZ;
