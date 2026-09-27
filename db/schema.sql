@@ -215,3 +215,10 @@ ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden BOOLEAN DEFAULT FALSE
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS override_reason TEXT;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden_by TEXT REFERENCES resources(id) ON DELETE SET NULL;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden_at TIMESTAMPTZ;
+
+-- Optional extra context on a session record: external partner org
+-- involved (if any), resources they brought/used, and whether photos from
+-- the session were taken and shared onward (reusing the existing
+-- photos_uploaded flag as that Y/N, rather than adding a duplicate column).
+ALTER TABLE psr ADD COLUMN IF NOT EXISTS external_org_name TEXT;
+ALTER TABLE psr ADD COLUMN IF NOT EXISTS external_resources TEXT;
