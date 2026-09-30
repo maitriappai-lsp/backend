@@ -9,6 +9,8 @@
 const express = require('express');
 const ExcelJS = require('exceljs');
 const pool = require('../db');
+const { rowToRecord } = require('../caseConvert');
+const { TABLES: GENERIC_TABLES } = require('./tables');
 
 const router = express.Router();
 
@@ -101,6 +103,63 @@ router.get('/:type', async (req, res, next) => {
 
     const buffer = await workbook.xlsx.writeBuffer();
     const filename = `${config.sheetName.toLowerCase()}-${from}-to-${to}.xlsx`;
+    res.json({ filename, base64: Buffer.from(buffer).toString('base64') });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Generic export for the Admin "Search" screen -- one route that works for
+// any of the whitelisted tables (same whitelist tables.js's CRUD route
+// uses), rather than a bespoke query per table like the exports above.
+// Optional ?ids=a,b,c limits to those specific rows (the screen's "export
+// selected"); with no ids, every row in the table is exported (its "export
+// all" default). Every column comes along as-is, in camelCase-derived
+// headers -- this is a raw data dump for an admin, not a formatted report
+// like the sheets above, so there's no per-table column curation here.
+// resources' password_hash is always stripped, same as the CRUD route.
+// ---------------------------------------------------------------------------
+function titleCaseHeader(camelKey) {
+  const spaced = camelKey.replace(/([A-Z])/g, ' $1').trim();
+  const words = spaced.split(' ').map((w) => (w.toLowerCase() === 'id' ? 'ID' : w[0].toUpperCase() + w.slice(1)));
+  return words.join(' ');
+}
+
+router.get('/table/:table', async (req, res, next) => {
+  try {
+    const table = GENERIC_TABLES[req.params.table];
+    if (!table) return res.status(404).json({ error: `Unknown table "${req.params.table}"` });
+
+    const idsParam = req.query.ids;
+    let rows;
+    if (idsParam) {
+      const ids = String(idsParam).split(',').map((s) => s.trim()).filter(Boolean);
+      if (ids.length === 0) {
+        rows = [];
+      } else {
+        const placeholders = ids.map((_, i) => `$${i + 1}`).join(', ');
+        ({ rows } = await pool.query(`SELECT * FROM ${table} WHERE id IN (${placeholders}) ORDER BY id`, ids));
+      }
+    } else {
+      ({ rows } = await pool.query(`SELECT * FROM ${table} ORDER BY id`));
+    }
+
+    const records = rows.map((r) => {
+      const rec = rowToRecord(r);
+      if (req.params.table === 'resources') delete rec.passwordHash;
+      return rec;
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet(req.params.table.slice(0, 31));
+    const keys = records.length > 0 ? Object.keys(records[0]) : [];
+    sheet.columns = keys.map((k) => ({ header: titleCaseHeader(k), key: k, width: 20 }));
+    sheet.getRow(1).font = { bold: true };
+    records.forEach((rec) => sheet.addRow(rec));
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const filename = `${req.params.table}-export.xlsx`;
     res.json({ filename, base64: Buffer.from(buffer).toString('base64') });
   } catch (err) {
     next(err);
