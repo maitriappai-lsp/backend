@@ -10,6 +10,7 @@ const overridesRouter = require('./routes/overrides');
 const filesRouter = require('./routes/files');
 const exportRouter = require('./routes/export');
 const importRouter = require('./routes/import');
+const attendanceOpenRouter = require('./routes/attendanceOpen');
 const { rowToRecord } = require('./caseConvert');
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/api/overrides', overridesRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/import', importRouter);
+app.use('/api/attendance-open', attendanceOpenRouter);
 app.use('/api', tablesRouter);
 
 app.use((err, req, res, next) => {
