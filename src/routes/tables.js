@@ -129,10 +129,15 @@ router.post('/:table', async (req, res, next) => {
         lastErr = err;
         const [, prefix, numStr] = idPattern;
         const width = numStr.length;
+        // Strictly "prefix-digits" only -- a LIKE '%' match would also pick
+        // up a different prefix that happens to start the same way (e.g.
+        // 'ATT-OV-0009' when prefix is 'ATT'), whose non-numeric suffix
+        // then breaks the CAST below.
+        const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const { rows: maxRows } = await pool.query(
           `SELECT COALESCE(MAX(CAST(SUBSTRING(id FROM LENGTH($1) + 2) AS INTEGER)), 0) AS max_n
-           FROM ${table} WHERE id LIKE $2`,
-          [prefix, `${prefix}-%`]
+           FROM ${table} WHERE id ~ $2`,
+          [prefix, `^${escapedPrefix}-[0-9]+$`]
         );
         const nextN = Number(maxRows[0].max_n) + 1 + attempt; // +attempt covers a same-instant race
         record = { ...record, id: `${prefix}-${String(nextN).padStart(width, '0')}` };
