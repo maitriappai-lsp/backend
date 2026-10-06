@@ -24,10 +24,16 @@ router.get('/', async (req, res, next) => {
       return res.status(400).json({ error: 'date query param (YYYY-MM-DD) is required' });
     }
     const facilitatorId = req.user.sub;
+    // Joined to beneficiaries so the response carries which geofence this
+    // check-in actually belongs to (checked_in_geo_id) -- the background
+    // task uses this to ignore an exit from an unrelated, nearby geofence
+    // rather than acting on any registered region's exit.
     const { rows } = await pool.query(
-      `SELECT * FROM attendance
-       WHERE facilitator_id = $1 AND date = $2 AND (time_out IS NULL OR time_out = '')
-       ORDER BY id DESC LIMIT 1`,
+      `SELECT a.*, b.geo_id AS checked_in_geo_id
+       FROM attendance a
+       LEFT JOIN beneficiaries b ON b.id = a.beneficiary_id
+       WHERE a.facilitator_id = $1 AND a.date = $2 AND (a.time_out IS NULL OR a.time_out = '')
+       ORDER BY a.id DESC LIMIT 1`,
       [facilitatorId, date]
     );
     res.json({ record: rows[0] ? rowToRecord(rows[0]) : null });
