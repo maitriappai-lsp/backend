@@ -16,7 +16,7 @@
 //   categories:    Pillar, Topic, Subtopic
 //   geo:           School, Label, Latitude, Longitude, Radius Meters
 //   schedule:      School, Class, Section, Facilitator Phone, Date, Time,
-//                  Pillar, Topic, Subtopic
+//                  Pillar, Topic, Subtopic, Assistant Phone (optional)
 // ---------------------------------------------------------------------------
 const express = require('express');
 const multer = require('multer');
@@ -223,6 +223,19 @@ async function importSchedule(rows) {
       result.errors.push(`Row ${i + 2}: No facilitator with phone ${r['facilitator phone']}.`);
       continue;
     }
+    // Optional: leave the Assistant Phone cell blank for no assistant. If a
+    // phone IS given but matches no resource, skip the row (same as an
+    // unknown facilitator) rather than silently dropping the assistant.
+    let assistantId = null;
+    if (r['assistant phone']) {
+      const asst = await pool.query('SELECT id FROM resources WHERE phone = $1', [r['assistant phone']]);
+      if (!asst.rows.length) {
+        result.skipped++;
+        result.errors.push(`Row ${i + 2}: No assistant with phone ${r['assistant phone']}.`);
+        continue;
+      }
+      assistantId = asst.rows[0].id;
+    }
     let categoryId = null;
     if (r.pillar) {
       const cat = await pool.query(
@@ -234,8 +247,8 @@ async function importSchedule(rows) {
     seq += 1;
     const id = `SCH-${String(seq).padStart(4, '0')}`;
     await pool.query(
-      'INSERT INTO schedule (id, beneficiary_id, facilitator_id, date, time, category_id) VALUES ($1,$2,$3,$4,$5,$6)',
-      [id, ben.rows[0].id, fac.rows[0].id, r.date, r.time, categoryId]
+      'INSERT INTO schedule (id, beneficiary_id, facilitator_id, assistant_id, date, time, category_id) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [id, ben.rows[0].id, fac.rows[0].id, assistantId, r.date, r.time, categoryId]
     );
     result.inserted++;
   }

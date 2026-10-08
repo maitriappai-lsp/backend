@@ -110,6 +110,12 @@ CREATE TABLE IF NOT EXISTS schedule (
   category_id    TEXT REFERENCES categories(id) ON DELETE SET NULL
 );
 
+-- Optional second resource on a scheduled session (assistant to the
+-- facilitator). Added via ALTER, not inline above, so it also reaches
+-- databases that already have the schedule table. Nullable: not every
+-- session has an assistant.
+ALTER TABLE schedule ADD COLUMN IF NOT EXISTS assistant_id TEXT REFERENCES resources(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS psr (
   id                    TEXT PRIMARY KEY,
   beneficiary_id        TEXT REFERENCES beneficiaries(id) ON DELETE SET NULL,

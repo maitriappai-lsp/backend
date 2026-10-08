@@ -52,14 +52,11 @@ const EXPORTS = {
       { header: 'RAG', key: 'rag', width: 10 },
       { header: 'Facilitator Feedback', key: 'facilitator_feedback', width: 30 },
       { header: 'School Feedback', key: 'school_feedback', width: 30 },
-      { header: 'External Org Name', key: 'external_org_name', width: 26 },
-      { header: 'External Resources', key: 'external_resources', width: 30 },
     ],
     query: `
       SELECT p.date, r.name AS facilitator, b.school, b.class AS klass,
              CONCAT(c.pillar, ' / ', c.topic) AS category,
-             p.students_present, p.rating, p.rag, p.facilitator_feedback, p.school_feedback,
-             p.external_org_name, p.external_resources
+             p.students_present, p.rating, p.rag, p.facilitator_feedback, p.school_feedback
       FROM psr p
       LEFT JOIN resources r ON r.id = p.facilitator_id
       LEFT JOIN beneficiaries b ON b.id = p.beneficiary_id
