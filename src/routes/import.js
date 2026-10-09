@@ -22,6 +22,7 @@ const express = require('express');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const pool = require('../db');
+const { findScheduleConflict, clashMessage } = require('../scheduleRules');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -235,6 +236,19 @@ async function importSchedule(rows) {
         continue;
       }
       assistantId = asst.rows[0].id;
+    }
+    // No double-booking: the facilitator and the assistant must each be free
+    // (as facilitator OR assistant) around this start time on this date.
+    const conflict = await findScheduleConflict(pool, {
+      date: r.date,
+      time: r.time,
+      facilitatorId: fac.rows[0].id,
+      assistantId,
+    });
+    if (conflict) {
+      result.skipped++;
+      result.errors.push(`Row ${i + 2}: ${clashMessage(conflict, r.date)}`);
+      continue;
     }
     let categoryId = null;
     if (r.pillar) {

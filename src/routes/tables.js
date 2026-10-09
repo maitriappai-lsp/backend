@@ -20,6 +20,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { recordToRow, rowToRecord } = require('../caseConvert');
+const { findScheduleConflict, clashMessage } = require('../scheduleRules');
 
 const router = express.Router({ mergeParams: true });
 
@@ -91,6 +92,13 @@ router.post('/:table', async (req, res, next) => {
     let record = { ...req.body };
 
     if (!record.id) return res.status(400).json({ error: 'record.id is required' });
+
+    // A person can't be double-booked on the schedule (as facilitator or
+    // assistant) -- see scheduleRules.js.
+    if (clientTable === 'schedule') {
+      const conflict = await findScheduleConflict(pool, record);
+      if (conflict) return res.status(409).json({ error: clashMessage(conflict, record.date) });
+    }
 
     if (clientTable === 'resources') {
       if (!record.password) {
@@ -165,6 +173,18 @@ router.patch('/:table/:id', async (req, res, next) => {
     const row = recordToRow(patch);
     const columns = Object.keys(row);
     if (columns.length === 0) return res.status(400).json({ error: 'Empty patch' });
+
+    // Only re-check when the patch touches something the rule depends on.
+    // The check runs on the row as it WOULD be after the patch (existing
+    // values merged with the patch), ignoring the row itself.
+    if (clientTable === 'schedule' && ['date', 'time', 'facilitatorId', 'assistantId'].some((k) => k in patch)) {
+      const { rows: current } = await pool.query('SELECT * FROM schedule WHERE id = $1', [req.params.id]);
+      if (current.length > 0) {
+        const merged = { ...rowToRecord(current[0]), ...patch };
+        const conflict = await findScheduleConflict(pool, { ...merged, ignoreId: req.params.id });
+        if (conflict) return res.status(409).json({ error: clashMessage(conflict, merged.date) });
+      }
+    }
 
     const setClause = columns.map((c, i) => `${c} = $${i + 1}`).join(', ');
     const values = Object.values(row);
