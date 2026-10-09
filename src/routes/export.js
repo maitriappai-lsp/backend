@@ -44,6 +44,7 @@ const EXPORTS = {
     columns: [
       { header: 'Date', key: 'date', width: 12 },
       { header: 'Facilitator', key: 'facilitator', width: 22 },
+      { header: 'Assistant', key: 'assistant', width: 22 },
       { header: 'School', key: 'school', width: 20 },
       { header: 'Class', key: 'klass', width: 10 },
       { header: 'Category', key: 'category', width: 26 },
@@ -56,12 +57,13 @@ const EXPORTS = {
       { header: 'External Resources', key: 'external_resources', width: 30 },
     ],
     query: `
-      SELECT p.date, r.name AS facilitator, b.school, b.class AS klass,
+      SELECT p.date, r.name AS facilitator, asst.name AS assistant, b.school, b.class AS klass,
              CONCAT(c.pillar, ' / ', c.topic) AS category,
              p.students_present, p.rating, p.rag, p.facilitator_feedback, p.school_feedback,
              p.external_org_name, p.external_resources
       FROM psr p
       LEFT JOIN resources r ON r.id = p.facilitator_id
+      LEFT JOIN resources asst ON asst.id = p.assistant_id
       LEFT JOIN beneficiaries b ON b.id = p.beneficiary_id
       LEFT JOIN categories c ON c.id = p.category_id
       WHERE p.date >= $1 AND p.date <= $2 AND ($3::text IS NULL OR p.facilitator_id = $3)

@@ -228,3 +228,7 @@ ALTER TABLE attendance ADD COLUMN IF NOT EXISTS overridden_at TIMESTAMPTZ;
 -- photos_uploaded flag as that Y/N, rather than adding a duplicate column).
 ALTER TABLE psr ADD COLUMN IF NOT EXISTS external_org_name TEXT;
 ALTER TABLE psr ADD COLUMN IF NOT EXISTS external_resources TEXT;
+
+-- Optional assistant who helped run this session (same idea as
+-- schedule.assistant_id). Nullable; ALTER so it reaches existing databases.
+ALTER TABLE psr ADD COLUMN IF NOT EXISTS assistant_id TEXT REFERENCES resources(id) ON DELETE SET NULL;
