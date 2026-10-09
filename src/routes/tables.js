@@ -20,7 +20,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { recordToRow, rowToRecord } = require('../caseConvert');
-const { findScheduleConflict, clashMessage } = require('../scheduleRules');
+const { checkWriteRules } = require('../scheduleRules');
 
 const router = express.Router({ mergeParams: true });
 
@@ -93,12 +93,10 @@ router.post('/:table', async (req, res, next) => {
 
     if (!record.id) return res.status(400).json({ error: 'record.id is required' });
 
-    // A person can't be double-booked on the schedule (as facilitator or
-    // assistant) -- see scheduleRules.js.
-    if (clientTable === 'schedule') {
-      const conflict = await findScheduleConflict(pool, record);
-      if (conflict) return res.status(409).json({ error: clashMessage(conflict, record.date) });
-    }
+    // Booking rules (one session per beneficiary per day, no double-booked
+    // resources, no overlapping check-ins) -- see scheduleRules.js.
+    const ruleError = await checkWriteRules(pool, clientTable, record, { creating: true });
+    if (ruleError) return res.status(409).json({ error: ruleError });
 
     if (clientTable === 'resources') {
       if (!record.password) {
@@ -174,15 +172,19 @@ router.patch('/:table/:id', async (req, res, next) => {
     const columns = Object.keys(row);
     if (columns.length === 0) return res.status(400).json({ error: 'Empty patch' });
 
-    // Only re-check when the patch touches something the rule depends on.
-    // The check runs on the row as it WOULD be after the patch (existing
-    // values merged with the patch), ignoring the row itself.
-    if (clientTable === 'schedule' && ['date', 'time', 'facilitatorId', 'assistantId'].some((k) => k in patch)) {
-      const { rows: current } = await pool.query('SELECT * FROM schedule WHERE id = $1', [req.params.id]);
+    // Only re-check when the patch touches something a rule depends on. The
+    // check runs on the row as it WOULD be after the patch (existing values
+    // merged with the patch), ignoring the row itself.
+    const RULE_FIELDS = {
+      schedule: ['date', 'time', 'beneficiaryId', 'facilitatorId', 'assistantId'],
+      psr: ['date', 'timeIn', 'timeOut', 'beneficiaryId', 'facilitatorId', 'assistantId'],
+    };
+    if (RULE_FIELDS[clientTable] && RULE_FIELDS[clientTable].some((k) => k in patch)) {
+      const { rows: current } = await pool.query(`SELECT * FROM ${table} WHERE id = $1`, [req.params.id]);
       if (current.length > 0) {
         const merged = { ...rowToRecord(current[0]), ...patch };
-        const conflict = await findScheduleConflict(pool, { ...merged, ignoreId: req.params.id });
-        if (conflict) return res.status(409).json({ error: clashMessage(conflict, merged.date) });
+        const ruleError = await checkWriteRules(pool, clientTable, merged, { ignoreId: req.params.id });
+        if (ruleError) return res.status(409).json({ error: ruleError });
       }
     }
 
