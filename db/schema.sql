@@ -210,8 +210,20 @@ CREATE TABLE IF NOT EXISTS system_parameters (
   product_validity_end   DATE,
   login_by_email         BOOLEAN DEFAULT FALSE,
   gps_on_beneficiary     BOOLEAN DEFAULT TRUE,
-  allowed_upload_types   JSONB DEFAULT '["photo","pdf","ppt"]'
+  allowed_upload_types   JSONB DEFAULT '["photo","pdf","ppt"]',
+  facilitator_face_recognition_enabled BOOLEAN NOT NULL DEFAULT TRUE
 );
+
+-- Add the face-recognition switch to existing installations as well.
+ALTER TABLE system_parameters
+  ADD COLUMN IF NOT EXISTS facilitator_face_recognition_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE system_parameters
+  ADD COLUMN IF NOT EXISTS gps_on_beneficiary BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Keep one settings row available from the first app launch.
+INSERT INTO system_parameters (id, facilitator_face_recognition_enabled, gps_on_beneficiary)
+VALUES (TRUE, TRUE, TRUE)
+ON CONFLICT (id) DO NOTHING;
 
 -- Admin time-in/time-out corrections (Override screen). Kept on the
 -- attendance row itself -- not just the separate `overrides` bypass log --

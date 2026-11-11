@@ -11,6 +11,7 @@ const filesRouter = require('./routes/files');
 const exportRouter = require('./routes/export');
 const importRouter = require('./routes/import');
 const attendanceOpenRouter = require('./routes/attendanceOpen');
+const systemParametersRouter = require('./routes/systemParameters');
 const { rowToRecord } = require('./caseConvert');
 
 const app = express();
@@ -50,7 +51,7 @@ app.get('/api/db', async (req, res, next) => {
       uploads,
       content,
       overrides: overrideRows.map(rowToRecord),
-      systemParameters: spRows[0] ? rowToRecord(spRows[0]) : null,
+      systemParameters: spRows[0] ? rowToRecord(spRows[0]) : { gpsOnBeneficiary: true, facilitatorFaceRecognitionEnabled: true },
     });
   } catch (err) {
     next(err);
@@ -62,6 +63,7 @@ app.use('/api/files', filesRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/import', importRouter);
 app.use('/api/attendance-open', attendanceOpenRouter);
+app.use('/api/system-parameters', systemParametersRouter);
 app.use('/api', tablesRouter);
 
 app.use((err, req, res, next) => {
