@@ -51,7 +51,16 @@ app.get('/api/db', async (req, res, next) => {
       uploads,
       content,
       overrides: overrideRows.map(rowToRecord),
-      systemParameters: spRows[0] ? rowToRecord(spRows[0]) : { gpsOnBeneficiary: true, facilitatorFaceRecognitionEnabled: true },
+      systemParameters: spRows[0] ? rowToRecord(spRows[0]) : {
+  productType: null,
+  orgName: null,
+  maxNamedUsers: null,
+  productValidityEnd: null,
+  loginByEmail: false,
+  gpsOnBeneficiary: true,
+  allowedUploadTypes: ['photo', 'pdf', 'ppt'],
+  facilitatorFaceRecognitionEnabled: true,
+},
     });
   } catch (err) {
     next(err);

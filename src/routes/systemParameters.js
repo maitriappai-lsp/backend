@@ -1,3 +1,4 @@
+
 // Admin-managed application-wide system parameters.
 const express = require('express');
 const pool = require('../db');
@@ -12,10 +13,62 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+const PARAMETER_COLUMNS = {
+  productType: 'product_type',
+  orgName: 'org_name',
+  maxNamedUsers: 'max_named_users',
+  productValidityEnd: 'product_validity_end',
+  loginByEmail: 'login_by_email',
+  gpsOnBeneficiary: 'gps_on_beneficiary',
+  allowedUploadTypes: 'allowed_upload_types',
+  facilitatorFaceRecognitionEnabled: 'facilitator_face_recognition_enabled',
+};
+
+function validateParameter(key, value) {
+  switch (key) {
+    case 'productType':
+    case 'orgName':
+      return value === null || typeof value === 'string';
+
+    case 'maxNamedUsers':
+      return value === null ||
+        (Number.isInteger(value) && value > 0);
+
+    case 'productValidityEnd':
+      return value === null ||
+        (typeof value === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(value));
+
+    case 'loginByEmail':
+    case 'gpsOnBeneficiary':
+    case 'facilitatorFaceRecognitionEnabled':
+      return typeof value === 'boolean';
+
+    case 'allowedUploadTypes':
+      return Array.isArray(value) &&
+        value.every((type) => ['photo', 'pdf', 'ppt'].includes(type));
+
+    default:
+      return false;
+  }
+}
+
 router.get('/', async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM system_parameters LIMIT 1');
-    res.json(rows[0] ? rowToRecord(rows[0]) : { gpsOnBeneficiary: true, facilitatorFaceRecognitionEnabled: true });
+    const { rows } = await pool.query(
+      'SELECT * FROM system_parameters LIMIT 1'
+    );
+
+    res.json(rows[0] ? rowToRecord(rows[0]) : {
+      productType: null,
+      orgName: null,
+      maxNamedUsers: null,
+      productValidityEnd: null,
+      loginByEmail: false,
+      gpsOnBeneficiary: true,
+      allowedUploadTypes: ['photo', 'pdf', 'ppt'],
+      facilitatorFaceRecognitionEnabled: true,
+    });
   } catch (err) {
     next(err);
   }
@@ -23,18 +76,30 @@ router.get('/', async (req, res, next) => {
 
 router.patch('/', requireAdmin, async (req, res, next) => {
   try {
-    const allowed = ['facilitatorFaceRecognitionEnabled', 'gpsOnBeneficiary'];
     const keys = Object.keys(req.body || {});
-    if (keys.length !== 1 || keys.some((key) => !allowed.includes(key))) {
-      return res.status(400).json({ error: 'Provide exactly one supported system parameter' });
-    }
-    const key = keys[0];
-    const value = req.body[key];
-    if (typeof value !== 'boolean') {
-      return res.status(400).json({ error: `${key} must be true or false` });
+
+    if (keys.length !== 1) {
+      return res.status(400).json({
+        error: 'Provide exactly one system parameter',
+      });
     }
 
-    const column = key === 'gpsOnBeneficiary' ? 'gps_on_beneficiary' : 'facilitator_face_recognition_enabled';
+    const key = keys[0];
+    const column = PARAMETER_COLUMNS[key];
+    const value = req.body[key];
+
+    if (!column) {
+      return res.status(400).json({
+        error: `Unsupported system parameter: ${key}`,
+      });
+    }
+
+    if (!validateParameter(key, value)) {
+      return res.status(400).json({
+        error: `Invalid value for system parameter: ${key}`,
+      });
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO system_parameters (id, ${column})
        VALUES (TRUE, $1)
@@ -43,6 +108,7 @@ router.patch('/', requireAdmin, async (req, res, next) => {
        RETURNING *`,
       [value]
     );
+
     res.json(rowToRecord(rows[0]));
   } catch (err) {
     next(err);
