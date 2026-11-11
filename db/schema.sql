@@ -244,3 +244,8 @@ ALTER TABLE psr ADD COLUMN IF NOT EXISTS external_resources TEXT;
 -- Optional assistant who helped run this session (same idea as
 -- schedule.assistant_id). Nullable; ALTER so it reaches existing databases.
 ALTER TABLE psr ADD COLUMN IF NOT EXISTS assistant_id TEXT REFERENCES resources(id) ON DELETE SET NULL;
+
+-- Tracker assessment captured alongside the facilitator's session RAG.
+-- ALTER keeps this addition safe for databases that already exist.
+ALTER TABLE psr ADD COLUMN IF NOT EXISTS tracker_rag_status TEXT;
+ALTER TABLE psr ADD COLUMN IF NOT EXISTS tracker_remarks TEXT;
