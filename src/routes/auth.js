@@ -110,6 +110,35 @@ router.post('/change-password', async (req, res, next) => {
   }
 });
 
+// POST /auth/reset-password { resourceId }
+// Admin only. Sets the account back to the default password ('changeme123')
+// and flags it so the person must choose a new one at next login. Also clears
+// any wrong-password lockout for that phone number.
+const DEFAULT_PASSWORD = 'changeme123';
+router.post('/reset-password', async (req, res, next) => {
+  try {
+    const claims = verifyBearer(req);
+    if (!claims) return res.status(401).json({ ok: false, error: 'Sign in required.' });
+    if (claims.role !== 'Admin') {
+      return res.status(403).json({ ok: false, error: 'Only an Admin can reset passwords.' });
+    }
+    const { resourceId } = req.body;
+    if (!resourceId) return res.status(400).json({ ok: false, error: 'resourceId is required' });
+
+    const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+    const { rows } = await pool.query(
+      'UPDATE resources SET password_hash = $1, must_change_password = TRUE WHERE id = $2 RETURNING *',
+      [passwordHash, resourceId]
+    );
+    if (rows.length === 0) return res.status(404).json({ ok: false, error: 'Resource not found' });
+    const user = scrubResource(rowToRecord(rows[0]));
+    if (user.phone) failedAttempts.delete(user.phone);
+    res.json({ ok: true, user });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /auth/change-password-with-old { phone, currentPassword, newPassword }
 // For the Login screen's "Change password": nobody is signed in yet, so the
 // person proves who they are with their current password instead of a token.
