@@ -191,6 +191,10 @@ CREATE TABLE IF NOT EXISTS content (
 
 ALTER TABLE content ADD COLUMN IF NOT EXISTS file_url TEXT;
 
+-- Which school level this content is for: Primary or Middle (NULL = not set yet,
+-- e.g. content uploaded before this column existed).
+ALTER TABLE content ADD COLUMN IF NOT EXISTS grade_level TEXT CHECK (grade_level IN ('Primary', 'Middle'));
+
 CREATE TABLE IF NOT EXISTS overrides (
   id              TEXT PRIMARY KEY,
   resource_id     TEXT REFERENCES resources(id) ON DELETE SET NULL,
